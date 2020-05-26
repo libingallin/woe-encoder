@@ -1,6 +1,6 @@
 # -*-encoding: utf-8 -*-
 """
-@time: 2020-05-25 16:40
+@time: 2020-05-26
 @author: libingallin@outlook.com
 """
 import numpy as np
@@ -246,30 +246,3 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         new_X = X.copy()
         new_X[self.col_name] = new_X[self.col_name].map(self.bin_woe_mapping_)
         return new_X
-
-
-if __name__ == '__main__':
-    import time
-    from category_encoders import WOEEncoder
-
-    train_data = pd.read_csv('../data/train_data.csv', index_col=0)
-    tmp_1 = train_data[['capital_name', 'repaid_flag']].copy()
-
-    time_0 = time.time()
-    cat_encoder = CatWOEEncoder('capital_name', 'repaid_flag',
-                                max_bins=1000, bin_pct_threshold=0.0, )
-    tmp_1_enc = cat_encoder.fit_transform(train_data)
-    time_1 = time.time()
-
-    tmp_2 = train_data[['capital_name', 'repaid_flag']].copy()
-    time_2 = time.time()
-    cat_encoder_2 = WOEEncoder(cols=['capital_name'])
-    cat_encoder_2.fit(tmp_2, tmp_2['repaid_flag'])
-    tmp_2_enc = cat_encoder_2.transform(tmp_2)
-    time_3 = time.time()
-
-    print(time_1 - time_0, time_3 - time_2)
-    print(tmp_1_enc['capital_name'].equals(tmp_2_enc['capital_name']))
-    print(tmp_1_enc['capital_name'], tmp_2_enc['capital_name'])
-
-

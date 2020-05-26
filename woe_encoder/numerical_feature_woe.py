@@ -1,6 +1,6 @@
 # -*-encoding: utf-8 -*-
 """
-@time: 2020-05-25 16:38
+@time: 2020-05-26
 @author: libingallin@outlook.com
 """
 import bisect
@@ -392,7 +392,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         return combined_arr, chi2_list, bad_rates
 
     def fit(self, X):
-        df = self._sample(X)
+        df = X.copy()
         # 每个 bin 的最少样本数
         self.bin_num_threshold = len(df) * self.bin_pct_threshold
 
@@ -464,8 +464,3 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             return self.bin_result_.iloc[-1, -2]
         else:
             return self.woe_[bisect.bisect_left(self.cutoffs_, x)]
-
-
-if __name__ == '__main__':
-    import time
-    from category_encoders import WOE
