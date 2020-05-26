@@ -8,8 +8,10 @@ import pandas as pd
 from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from .utils import calculate_woe_iv, if_monotonic
 
-class CatWOEEncoder(BaseEstimator, TransformerMixin):
+
+class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
     """WOE transformer for categorical feature."""
     def __init__(self,
                  col_name: str,
@@ -161,54 +163,6 @@ class CatWOEEncoder(BaseEstimator, TransformerMixin):
 
         return bin_df, chi2_list
 
-    @staticmethod
-    def if_monotonic(bad_rates, u: bool) -> bool:
-        """"判断一个序列是否满足单调性/U 型."""
-        bad_rates_len = len(bad_rates)
-        if bad_rates_len == 2:
-            return True
-
-        def _compare(arr, start=0, stop=None, increase=True):
-            if stop is None:
-                stop = len(arr)
-            if increase:
-                flag = all([i <= j for i, j in
-                            zip(arr[start:stop], arr[start + 1:stop])])
-                return flag
-            else:
-                flag = all([i >= j for i, j in
-                            zip(arr[start:stop], arr[start + 1:stop])])
-                return flag
-
-        up_all = _compare(bad_rates, increase=True)
-        down_all = _compare(bad_rates, increase=False)
-        if up_all or down_all:
-            return True
-
-        # 如果非单调，但是接受 U 型
-        if u:
-            # 如果存在相邻的 2 个值相等，那么即便呈 U 型，也是不严格的
-            any_equal = any([i == j for i, j in zip(bad_rates, bad_rates[1:])])
-            if any_equal:
-                return False
-
-            min_idx = np.argmin(bad_rates)
-            max_idx = np.argmax(bad_rates)
-
-            # 倒 U 型，极大值不在首尾
-            if max_idx not in [0, bad_rates_len - 1]:
-                left_up = _compare(bad_rates, stop=max_idx, increase=True)
-                right_down = _compare(bad_rates, start=max_idx, increase=False)
-                if left_up and right_down:
-                    return True
-            # 正 U 型，极小值不在首尾
-            if min_idx not in [0, bad_rates_len - 1]:
-                left_down = _compare(bad_rates, stop=min_idx, increase=False)
-                right_up = _compare(bad_rates, start=min_idx, increase=True)
-                if left_down and right_up:
-                    return True
-        return False
-
     def _train(self, bin_df, chi2_list):
         # condition 1: bin 的个数不大于 max_bins
         while len(bin_df) > self.max_bins:
@@ -237,7 +191,7 @@ class CatWOEEncoder(BaseEstimator, TransformerMixin):
         # 只有有序的离散变量才需要
         if self.need_monotonic:
             bad_rates = bin_df.iloc[:, 4]
-            while not self.if_monotonic(bad_rates, u=self.u):
+            while not if_monotonic(bad_rates, u=self.u):
                 index = np.argmin(chi2_list)
                 bin_df, chi2_list = self._update_bin_df(bin_df, index)
                 bad_rates = bin_df.iloc[:, 4]
@@ -274,7 +228,7 @@ class CatWOEEncoder(BaseEstimator, TransformerMixin):
             bin_df = bin_df.append(statistic_values, ignore_index=True)
 
         # Calculate WOE and IV
-        bin_df[['woe', 'iv']] = self._calculate_woe_iv(
+        bin_df[['woe', 'iv']] = calculate_woe_iv(
             bin_df, bad_col='bad_num', good_col='good_num')
 
         self.woe_ = bin_df['woe'].sum()
@@ -292,19 +246,6 @@ class CatWOEEncoder(BaseEstimator, TransformerMixin):
         new_X = X.copy()
         new_X[self.col_name] = new_X[self.col_name].map(self.bin_woe_mapping_)
         return new_X
-
-    @staticmethod
-    def _calculate_woe_iv(bin_df, bad_col, good_col):
-        bad_sum = bin_df[bad_col].sum()
-        good_sum = bin_df[good_col].sum()
-
-        bin_df['woe'] = bin_df.apply(
-            lambda row: np.log((row[bad_col] / bad_sum) / (row[good_col] / good_sum)),
-            axis=1)
-        bin_df['iv'] = bin_df.apply(
-            lambda row: (row[bad_col]/bad_sum - row[good_col]/good_sum) * row['woe'],
-            axis=1)
-        return bin_df[['woe', 'iv']]
 
 
 if __name__ == '__main__':

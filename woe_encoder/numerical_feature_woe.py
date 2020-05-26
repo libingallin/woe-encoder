@@ -10,8 +10,10 @@ import pandas as pd
 from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from .utils import calculate_woe_iv, if_monotonic
 
-class NumWOEEncoder(BaseEstimator, TransformerMixin):
+
+class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     """WOE Encoder based on a specific Chi-square value chi2 for numerical feature.
 
     对连续型特征做卡方阈值法分箱 + WOE 转换.
@@ -54,8 +56,6 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
         最左边的值. 可以选择 min (TODO)
     max_cutoff: float, or "max", default to float('inf')
         最右边的值. 可以选择 max (TODO)
-    sample_frac: float, default to None
-        抽样的比例. 默认不抽样
 
     Attributes
     ----------
@@ -94,8 +94,7 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
                  need_monotonic=True,
                  u=False,
                  min_cutoff=float('-inf'),
-                 max_cutoff=float('inf'),
-                 sample_frac=None):
+                 max_cutoff=float('inf')):
         self.col_name = col_name
         self.target_col_name = target_col_name
         self.initialize_method = initialize_method
@@ -107,60 +106,30 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
         self.u = u
         self.min_cutoff = min_cutoff
         self.max_cutoff = max_cutoff
-        self.sample_frac = sample_frac
 
-    def _sample(self, df):
-        """对传入的数据进行抽样, 防止数据太大."""
+    def _inspect(self, df):
+        """确保入参、输入数据格式的正确性."""
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("The input data must be DataFrame.")
+
+        if isinstance(self.col_name, str):
+            raise ValueError("Please enter a string for `col_name`.")
+        if self.col_name not in df.columns:
+            raise ValueError("{} is not in the input data.".format(
+                self.col_name))
         if len(df) != sum(df[self.col_name].notnull()):
             raise ValueError(
                 "There are missing values in `{}`".format(self.col_name))
+
+        if isinstance(self.target_col_name, str):
+            raise ValueError("Please enter a string for `target_col_name`.")
+        if self.target_col_name not in df.columns:
+            raise ValueError("{} is not in the input data.".format(
+                self.col_name))
         if len(df) != sum(df[self.target_col_name].notnull()):
             raise ValueError(
-                "There are missing values in `{}`".format(self.target_col_name))
-
-        if self.sample_frac:
-            if not isinstance(self.sample_frac, (float, int)):
-                raise ValueError(
-                    "Please enter a numerical value for `sample_frac.")
-            if self.sample_frac > 1. or self.sample_frac <= 0.:
-                raise ValueError(
-                    "Please enter a numerical between 0 and 1 for "
-                    "`sample_frac`.")
-            return df.sample(frac=self.sample_frac, random_state=42)
-        else:
-            return df.copy()
-
-    @staticmethod
-    def calculate_woe_iv(df: pd.DataFrame, bad_col: str, good_col: str):
-        """计算 pd.DataFrame 的 WOE 值和 IV 值.
-
-        Parameters
-        ----------
-        df: pd.DataFrame
-            应该是分箱结束后的统计.
-        bad_col: str
-            表示 1 的字符串名称.
-        good_col: str
-            表示 0 的字符串名称.
-
-        Examples
-        --------
-            bad  good  woe                                      iv
-             a    b    e = np.log((a/bad_sum) / (b/good_sum))   (a/bad_sum-b/good_sum)*e
-             c    d    f = np.log((c/bad_sum) / (d/good_sum))   (c/bad_sum-d/good_sum)*f
-        bad_sum = a + c
-        good_sum = b + d
-        """
-        bad_sum = df[bad_col].sum()
-        good_sum = df[good_col].sum()
-
-        df['woe'] = df.apply(
-            lambda row: np.log((row[bad_col] / bad_sum) / (row[good_col] / good_sum)),
-            axis=1)
-        df['iv'] = df.apply(
-            lambda row: (row[bad_col]/bad_sum - row[good_col]/good_sum) * row['woe'],
-            axis=1)
-        return df[['woe', 'iv']]
+                "There are missing values in `{}`".format(
+                    self.target_col_name))
 
     @staticmethod
     def calculate_bad_rate(np_arr: np.ndarray, only_bad_rate=True):
@@ -215,54 +184,6 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
         if len(chi2_list) != arr_len - 1:
             raise ValueError("卡方值的数量应该等于数组长度减 1.")
         return chi2_list
-
-    @staticmethod
-    def if_monotonic(bad_rates, u: bool) -> bool:
-        """"判断一个序列是否满足单调性/U 型."""
-        bad_rates_len = len(bad_rates)
-        if bad_rates_len == 2:  # 只有 2 个值的时候肯定单调
-            return True
-
-        def _compare(arr, start=0, stop=None, increase=True):
-            if stop is None:
-                stop = len(arr)
-            if increase:
-                flag = all([i <= j for i, j in
-                            zip(arr[start:stop], arr[start + 1:stop])])
-                return flag
-            else:
-                flag = all([i >= j for i, j in
-                            zip(arr[start:stop], arr[start + 1:stop])])
-                return flag
-
-        up_all = _compare(bad_rates, increase=True)
-        down_all = _compare(bad_rates, increase=False)
-        if up_all or down_all:
-            return True
-
-        # 如果非单调，但是接受 U 型
-        if u:
-            # 如果存在相邻的 2 个值相等，那么即便呈 U 型，也是不严格的
-            any_equal = any([i == j for i, j in zip(bad_rates, bad_rates[1:])])
-            if any_equal:
-                return False
-
-            min_idx = np.argmin(bad_rates)
-            max_idx = np.argmax(bad_rates)
-
-            # 倒 U 型，极大值不在首尾
-            if max_idx not in [0, bad_rates_len - 1]:
-                left_up = _compare(bad_rates, stop=max_idx, increase=True)
-                right_down = _compare(bad_rates, start=max_idx, increase=False)
-                if left_up and right_down:
-                    return True
-            # 正 U 型，极小值不在首尾
-            if min_idx not in [0, bad_rates_len - 1]:
-                left_down = _compare(bad_rates, stop=min_idx, increase=False)
-                right_up = _compare(bad_rates, start=min_idx, increase=True)
-                if left_down and right_up:
-                    return True
-        return False
 
     def _init_bins(self, df):
         """初始化分箱操作, 并计算相邻 2 个 bin 的卡方值.
@@ -362,6 +283,8 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
         np_arr[index, 1:] += np_arr[index + 1, 1:]
         np_arr = np.delete(np_arr, index + 1, axis=0)
 
+        # 可以每次重新从头计算 chi2_list 来避免这种烧脑地手动更新 chi2_list.
+        # 但是这种方法很慢, 而且手动更新有助于理解全过程.
         if index == raw_arr_len - 1:  # 最后 1 个 bin 没法向下合并
             raise ValueError("The last bin must be merged with the above.")
         elif index == raw_arr_len - 2:  # 倒数第 2 个 bin，则合并最后 2 个 bin
@@ -378,11 +301,6 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
             raise ValueError(
                 "The length of `np_arr` is greater than the length of "
                 "`chi2_list` by 1 after process.")
-        return np_arr, chi2_list
-
-        # 每次全部重新计算很慢
-        # chi2_list 依赖于 np_arr
-        # chi2_list = self.calculate_chi2_for_array(np_arr)
         return np_arr, chi2_list
 
     @staticmethod
@@ -455,7 +373,7 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
         # condition 4: 满足单调性 (U 型)
         if self.need_monotonic:
             # print("Merging bins to meet monotonicity...")
-            while not self.if_monotonic(bad_rates, self.u):
+            while not if_monotonic(bad_rates, self.u):
                 index = np.argmin(chi2_list)
                 combined_arr, chi2_list = self._merge_bins(
                     combined_arr, chi2_list, index)
@@ -520,7 +438,7 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
             # 最后 1 行是 special_value 的相关信息
             result = result.append(statistic_values, ignore_index=True)
         # Calculate WOE and IV
-        result[['woe', 'iv']] = self.calculate_woe_iv(
+        result[['woe', 'iv']] = calculate_woe_iv(
             result, bad_col='bad_num', good_col='good_num')
 
         self.cutoffs_ = cutoffs
@@ -550,19 +468,4 @@ class NumWOEEncoder(BaseEstimator, TransformerMixin):
 
 if __name__ == '__main__':
     import time
-    train_data = pd.read_csv('../data/train_data.csv', index_col=0)
-    tmp = train_data[['client_age', 'repaid_flag']].copy()
-
-    # chi2_bin = NumWOEEncoder('lend_loan_amount', 'repaid_flag', need_monotonic=False)
-    chi2_bin = NumWOEEncoder('client_age', 'repaid_flag', need_monotonic=True)
-    chi2_bin.fit(train_data)
-    print("Cutoffs:", chi2_bin.cutoffs_)
-    print("WOE list:", chi2_bin.woe_)
-    print("IV:", chi2_bin.iv_)
-    print("Chi2 values:", chi2_bin.chi2_list_)
-    print(chi2_bin.bin_result_)
-
-    time0 = time.time()
-    res = chi2_bin.transform(tmp)
-    # print("Time for transform:", time.time() - time0)
-    # print(res['car_year_1'])
+    from category_encoders import WOE
