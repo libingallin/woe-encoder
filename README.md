@@ -1,4 +1,4 @@
-# WOE Encoder
+# WOE Encoders compatible with Scikit-Learn
 
 ## 功能
 
