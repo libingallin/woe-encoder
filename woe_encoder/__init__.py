@@ -7,6 +7,8 @@
 from woe_encoder.categorical_feature_woe import CategoryWOEEncoder
 from woe_encoder.numerical_feature_woe import NumericalWOEEncoder
 
+__version__ = '1.0'
+
 __author__ = 'libingallin@outlook.com'
 
 __all__ = [
