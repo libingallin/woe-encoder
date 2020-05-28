@@ -1,6 +1,6 @@
 # WOE Encoders compatible with Scikit-Learn
 
-## 功能
+## Features
 
 - [x] woe encoder based on chiSquare value
   - [x] 基于卡方阈值对连续型特征做 woe encoder/ordinary encoder
@@ -12,6 +12,9 @@
 
 
 ## WOE binning based on chiSquare value
+
+
+## Usages
 
 
 ## References
