@@ -457,10 +457,10 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         new_X = X.copy()
 
         if self.special_value:
-            new_X[self.col_name] = new_X[self.col_name].apply(
+            new_X[self.col_name + '_woe'] = new_X[self.col_name].apply(
                 lambda x: self._woe_replace_with_special_value)
         else:
-            new_X[self.col_name] = new_X[self.col_name].apply(
+            new_X[self.col_name + '_woe'] = new_X[self.col_name].apply(
                 lambda x: self.woe_[bisect.bisect_left(self.cutoffs_, x)])
         return new_X
 
