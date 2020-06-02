@@ -61,7 +61,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     ----------
     cutoffs_: list
         分割点组成的 list. 不含第一个 bin 的左边，不含最后一个 bin 的右边
-    self.woe_: list
+    woe_: list
         每个 bin 的 WOE 值
     iv_: float
         分箱之后该特征的 IV 值.
@@ -83,6 +83,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     # 替换掉相应的列
     X_transformed = woe_encoder.transform(X)   # pd.DataFrame
     """
+
     def __init__(self,
                  col_name: str,
                  target_col_name: str,
@@ -224,7 +225,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             count_df['good_num'] = count_df['bin_num'] - count_df['bad_num']
             del count_df['bin_num']
             count_df.reset_index(inplace=True)
-            if len(set((len(bin_num), len(bad_num), len(count_df)))) != 1:
+            if not len(bin_num) == len(bad_num) == len(count_df):
                 raise ValueError("The length of data must be SAME.")
 
             combined_arr = count_df.values  # For high speed
@@ -234,7 +235,8 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         i = 0
         while i <= (len(combined_arr) - 2):
             # 第 i 和 i+1 个位置的 bad_num 连续为 0 或者 good_num 连续为 0
-            if (combined_arr[i:i + 2, 1] == 0).all() or (combined_arr[i: i + 2, 2] == 0).all():
+            if (combined_arr[i:i + 2, 1] == 0).all() or (
+                    combined_arr[i: i + 2, 2] == 0).all():
                 combined_arr[i, 0] = combined_arr[i + 1, 0]
                 combined_arr[i, 1:] += combined_arr[i + 1, 1:]
                 combined_arr = np.delete(combined_arr, i + 1, axis=0)
@@ -288,11 +290,13 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         if index == raw_arr_len - 1:  # 最后 1 个 bin 没法向下合并
             raise ValueError("The last bin must be merged with the above.")
         elif index == raw_arr_len - 2:  # 倒数第 2 个 bin，则合并最后 2 个 bin
-            chi2_list[index - 1] = chi2_contingency(np_arr[index-1:index+1, 1:])[0]
+            chi2_list[index - 1] = \
+            chi2_contingency(np_arr[index - 1:index + 1, 1:])[0]
             _ = chi2_list.pop(index)
         else:
             if index != 0:  # 如果是第 1 个 bin，只更新第 1 chi2，然后删除第 2 个 chi2
-                chi2_list[index - 1] = chi2_contingency(np_arr[index-1:index+1, 1:])[0]
+                chi2_list[index - 1] = \
+                chi2_contingency(np_arr[index - 1:index + 1, 1:])[0]
             chi2_list[index] = chi2_contingency(np_arr[index:index + 2, 1:])[0]
             chi2_list.pop(index + 1)
 
@@ -322,7 +326,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             return i - 1
         else:
             chi2_1 = chi2_list[i - 1]  # 与上一个 bin 的卡方值
-            chi2_2 = chi2_list[i]      # 与下一个 bin 的卡方值
+            chi2_2 = chi2_list[i]  # 与下一个 bin 的卡方值
             above_bin_pct = combined_arr[i - 1, 1:].sum() / total_n
             below_bin_pct = combined_arr[i, 1:].sum() / total_n
 
@@ -419,7 +423,8 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             }
 
         combined_arr, chi2_list = self._init_bins(df)
-        combined_arr, chi2_list, bad_rates = self._train(combined_arr, chi2_list)
+        combined_arr, chi2_list, bad_rates = self._train(combined_arr,
+                                                         chi2_list)
 
         # 转换并保存结果
         arr_len = len(combined_arr)

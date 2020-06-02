@@ -47,3 +47,5 @@ if __name__ == '__main__':
     print(my_num.woe_, my_num.iv_)
     print(my_num.bin_result_)
     print(x['CRIM'], '\n', x_1['CRIM'])
+
+    from woe_encoder import CatMaxBadRateDiffWOEEncoder
