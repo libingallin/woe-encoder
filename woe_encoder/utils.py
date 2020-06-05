@@ -21,7 +21,7 @@ def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str):
 
     Examples
     --------
-    bad_col  good_col  woe                             iv
+    bad_cnt  good_cnt  woe                             iv
     a    b    e = np.log((a/bad_sum) / (b/good_sum))   (a/bad_sum-b/good_sum)*e
     c    d    f = np.log((c/bad_sum) / (d/good_sum))   (c/bad_sum-d/good_sum)*f
     bad_sum = a + c

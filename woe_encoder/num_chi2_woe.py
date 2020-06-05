@@ -10,7 +10,7 @@ import pandas as pd
 from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from .utils import calculate_woe_iv, if_monotonic
+from woe_encoder.utils import calculate_woe_iv, if_monotonic
 
 
 class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
@@ -341,7 +341,6 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     def _train(self, combined_arr, chi2_list):
         # condition 1: 相邻 bin 的 chi2 要大于 confidence
         # 否则合并 chi2 最小的 2 个 bin
-        # print("Merging two bins whose chi2 value < {}".format(self.confidence))
         while len(chi2_list) > 0 and min(chi2_list) < self.confidence:
             index = np.argmin(chi2_list)
             combined_arr, chi2_list = self._merge_bins(

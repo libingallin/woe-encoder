@@ -1,6 +1,6 @@
 # -*-encoding: utf-8 -*-
 """
-@time: 2020/6/1 11:02
+@time: 2020/6/1
 @author: libingallin@outlook.com
 """
 import pandas as pd
