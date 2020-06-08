@@ -9,7 +9,7 @@ from woe_encoder.num_chi2_woe import NumericalWOEEncoder
 
 __version__ = '1.0'
 
-__author__ = 'libing@souche.com'
+__author__ = 'libingallin@outlook.com'
 
 __all__ = [
     'CatMaxBinBadRateDiffWOEEncoder',
