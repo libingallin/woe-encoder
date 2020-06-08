@@ -399,7 +399,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         # 每个 bin 的最少样本数
         self.bin_num_threshold = len(df) * self.bin_pct_threshold
 
-        if self.special_value:
+        if self.special_value is not None:
             # print("Process special value {}...".format(self.special_value))
             df_special = df[df[self.col_name] == self.special_value]
             df = df[df[self.col_name] != self.special_value]
@@ -414,8 +414,8 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
                 print("The number for `{}` is less than {}".format(
                     self.special_value, self.bin_pct_threshold))
             statistic_values = {
-                'left': left,
-                'right': right,
+                'left_exclusive': left,
+                'right_inclusive': right,
                 'good_num': good_num_special,
                 'bad_num': bad_num_special,
                 'bad_rate': bad_rate_special
@@ -438,7 +438,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         result['good_num'] = combined_arr[:, 2]
         result['bad_num'] = combined_arr[:, 1]
         result['bad_rate'] = bad_rates
-        if self.special_value:
+        if self.special_value is not None:
             # 最后 1 行是 special_value 的相关信息
             result = result.append(statistic_values, ignore_index=True)
         # Calculate WOE and IV
@@ -455,9 +455,10 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     def transform(self, X):
         new_X = X.copy()
 
-        if self.special_value:
+        if self.special_value is not None:
+            print("I'm here!")
             new_X[self.col_name + '_woe'] = new_X[self.col_name].apply(
-                lambda x: self._woe_replace_with_special_value)
+                self._woe_replace_with_special_value)
         else:
             new_X[self.col_name + '_woe'] = new_X[self.col_name].apply(
                 lambda x: self.woe_[bisect.bisect_left(self.cutoffs_, x)])
@@ -468,3 +469,19 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             return self.bin_result_.iloc[-1, -2]
         else:
             return self.woe_[bisect.bisect_left(self.cutoffs_, x)]
+
+
+if __name__ == '__main__':
+    from sklearn.datasets import load_boston
+    from category_encoders import WOEEncoder
+    bunch = load_boston()
+    X = pd.DataFrame(bunch.data, columns=bunch.feature_names)
+    y = bunch.target > 22.5
+    # print(X.columns)
+
+    tmp = X.copy()
+    tmp['y'] = y
+    my_woe = NumericalWOEEncoder('ZN', 'y', special_value=0.)
+    res_2 = my_woe.fit_transform(tmp)
+    print(my_woe.bin_result_)
+    print(res_2)

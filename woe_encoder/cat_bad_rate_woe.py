@@ -93,7 +93,7 @@ class CatMaxBinBadRateDiffWOEEncoder(BaseEstimator, TransformerMixin):
         raw_length = len(X)
         bin_num_threshold = raw_length * self.bin_pct_threshold
 
-        if self.special_value:
+        if self.special_value is not None:
             X_special = X[X[self.col_name] == self.special_value]
             X = X[X[self.col_name] != self.special_value]
 
@@ -117,7 +117,7 @@ class CatMaxBinBadRateDiffWOEEncoder(BaseEstimator, TransformerMixin):
                            value_order_dict=self.value_order_dict)
         bin_df = self._train(bin_df, bin_num_threshold)
 
-        if self.special_value:
+        if self.special_value is not None:
             bin_df = bin_df.append(statistic_values, ignore_index=True)
 
         bin_df[['woe', 'iv']] = calculate_woe_iv(

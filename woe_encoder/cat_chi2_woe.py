@@ -106,7 +106,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         raw_length = len(X)
         bin_num_threshold = raw_length * self.bin_pct_threshold
 
-        if self.special_value:
+        if self.special_value is not None:
             X_special = X[X[self.col_name] == self.special_value]
             X = X[X[self.col_name] != self.special_value]
 
@@ -129,7 +129,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
                            value_order_dict=self.value_order_dict)
         bin_df, chi2_list = self._train(bin_df, bin_num_threshold)
 
-        if self.special_value:
+        if self.special_value is not None:
             bin_df = bin_df.append(statistic_values, ignore_index=True)
 
         # Calculate WOE and IV
