@@ -38,8 +38,6 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         需要转换的 WOE 转换的列
     target_col_name: str
         目标列 (y)
-    initialize_method: str, default to 'all'
-        初始化分箱方法. 默认每个 unique 值当作一个 bin
     bin_pct_threshold: float, default to 0.05
         每个 bin 最少数量
     confidence: float, default to 3.841
@@ -56,6 +54,8 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         最左边的值. 可以选择 min (TODO)
     max_cutoff: float, or "max", default to float('inf')
         最右边的值. 可以选择 max (TODO)
+    regularization: float default to 1.0
+        防止计算 woe 时分母为 0
 
     Attributes
     ----------
@@ -87,7 +87,6 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
     def __init__(self,
                  col_name: str,
                  target_col_name: str,
-                 initialize_method='all',
                  bin_pct_threshold=0.05,
                  confidence=3.841,
                  max_bins=None,
@@ -95,10 +94,10 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
                  need_monotonic=True,
                  u=False,
                  min_cutoff=float('-inf'),
-                 max_cutoff=float('inf')):
+                 max_cutoff=float('inf'),
+                 regularization=1.0):
         self.col_name = col_name
         self.target_col_name = target_col_name
-        self.initialize_method = initialize_method
         self.bin_pct_threshold = bin_pct_threshold
         self.confidence = confidence
         self.special_value = special_value
@@ -107,6 +106,7 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         self.u = u
         self.min_cutoff = min_cutoff
         self.max_cutoff = max_cutoff
+        self.regularization = regularization
 
     def _inspect(self, df):
         """确保入参、输入数据格式的正确性."""
@@ -207,28 +207,27 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         """
         # TODO(libing@souche.com): 等频、等宽初始化分箱
         # print("Initializing bins for numerical feature...")
-        if self.initialize_method == 'all':
-            # 统计每个 bin 包含的数据量
-            # default sort=True
-            grouped = df.groupby(self.col_name)[self.target_col_name]
-            bin_num = grouped.count()
-            # index: bin 值, col: 数量
-            bin_num = pd.DataFrame({'bin_num': bin_num})
-            # 统计每个 bin 的正样本数 (target_col_value == 1)
-            bad_num = grouped.sum()
-            # index: bin 值, col: 正样本数
-            bad_num = pd.DataFrame({'bad_num': bad_num})
+        # 统计每个 bin 包含的数据量
+        # default sort=True
+        grouped = df.groupby(self.col_name)[self.target_col_name]
+        bin_num = grouped.count()
+        # index: bin 值, col: 数量
+        bin_num = pd.DataFrame({'bin_num': bin_num})
+        # 统计每个 bin 的正样本数 (target_col_value == 1)
+        bad_num = grouped.sum()
+        # index: bin 值, col: 正样本数
+        bad_num = pd.DataFrame({'bad_num': bad_num})
 
-            count_df = bin_num.merge(bad_num, how='inner',
-                                     left_index=True, right_index=True)
-            # 每个 bin 的负样本数 (target_col_value == 0)
-            count_df['good_num'] = count_df['bin_num'] - count_df['bad_num']
-            del count_df['bin_num']
-            count_df.reset_index(inplace=True)
-            if not len(bin_num) == len(bad_num) == len(count_df):
-                raise ValueError("The length of data must be SAME.")
+        count_df = bin_num.merge(bad_num, how='inner',
+                                 left_index=True, right_index=True)
+        # 每个 bin 的负样本数 (target_col_value == 0)
+        count_df['good_num'] = count_df['bin_num'] - count_df['bad_num']
+        del count_df['bin_num']
+        count_df.reset_index(inplace=True)
+        if not len(bin_num) == len(bad_num) == len(count_df):
+            raise ValueError("The length of data must be SAME.")
 
-            combined_arr = count_df.values  # For high speed
+        combined_arr = count_df.values  # For high speed
 
         # 处理连续没有正/负样本的区间，则进行区间的向下合并 (防止计算 chi2 出错)
         # print("Merging unreasonable bins...")
@@ -443,7 +442,8 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
             result = result.append(statistic_values, ignore_index=True)
         # Calculate WOE and IV
         result[['woe', 'iv']] = calculate_woe_iv(
-            result, bad_col='bad_num', good_col='good_num')
+            result, bad_col='bad_num', good_col='good_num',
+            regularization=self.regularization)
 
         self.cutoffs_ = cutoffs
         self.woe_ = result['woe'].tolist()
@@ -480,8 +480,9 @@ if __name__ == '__main__':
     # print(X.columns)
 
     tmp = X.copy()
-    tmp['y'] = y
-    my_woe = NumericalWOEEncoder('ZN', 'y', special_value=0.)
-    res_2 = my_woe.fit_transform(tmp)
-    print(my_woe.bin_result_)
-    print(res_2)
+    print(tmp.groupby('RAD').agg(['count', 'sum']))
+    # tmp['y'] = y
+    # my_woe = NumericalWOEEncoder('ZN', 'y', special_value=0.)
+    # res_2 = my_woe.fit_transform(tmp)
+    # print(my_woe.bin_result_)
+    # print(res_2)

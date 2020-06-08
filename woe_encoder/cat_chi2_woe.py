@@ -9,7 +9,7 @@ from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from woe_encoder.utils import calculate_woe_iv, if_monotonic
-from woe_encoder.utils_for_cat import init_bins, update_bin_df, locate_index
+from woe_encoder.cat_utils import initialize_bins, locate_index, update_bin_df
 
 
 class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
@@ -24,7 +24,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
                  value_order_dict=None,
                  special_value=None,
                  need_monotonic=False,
-                 u=False):
+                 u=False,
+                 regularization=1.0):
         self.col_name = col_name
         self.target_col_name = target_col_name
         self.max_bins = max_bins
@@ -33,7 +34,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         self.value_order_dict = value_order_dict
         self.special_value = special_value
         self.need_monotonic = need_monotonic
-        self.u = u
+        self.u = u,
+        self.regularization = regularization
 
     @staticmethod
     def calculate_chi2_for_bin_df(bin_df: pd.DataFrame) -> list:
@@ -125,8 +127,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
                 statistic_values.update(
                     {'order': self.value_order_dict[self.special_value]})
 
-        bin_df = init_bins(X, self.col_name, self.target_col_name,
-                           value_order_dict=self.value_order_dict)
+        bin_df = initialize_bins(X, self.col_name, self.target_col_name,
+                                 value_order_dict=self.value_order_dict)
         bin_df, chi2_list = self._train(bin_df, bin_num_threshold)
 
         if self.special_value is not None:
@@ -134,7 +136,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
 
         # Calculate WOE and IV
         bin_df[['woe', 'iv']] = calculate_woe_iv(
-            bin_df, bad_col='bad_num', good_col='good_num')
+            bin_df, bad_col='bad_num', good_col='good_num',
+            regularization=self.regularization)
 
         # 值与对应 WOE 的映射, 方便 transform
         bin_woe_mapping = {}

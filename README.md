@@ -81,7 +81,11 @@ TODO
 
 ## 3. 食用方法
 
-TODO
+```python
+from woe_encoder import CatMaxBinBadRateDiffWOEEncoder
+from woe_encoder import CategoryWOEEncoder
+from woe_encoder import NumericalWOEEncoder
+```
 
 
 

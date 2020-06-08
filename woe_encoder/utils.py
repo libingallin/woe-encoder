@@ -7,8 +7,9 @@ import numpy as np
 import pandas as pd
 
 
-def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str):
-    """计算 pd.DataFrame 的 WOE 值和 IV 值.
+def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str,
+                     regularization=1.):
+    """计算 pd.DataFrame 的正则化 WOE 值和 IV 值.
 
     Parameters
     ----------
@@ -18,6 +19,8 @@ def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str):
         表示 1 的字符串名称.
     good_col: str
         表示 0 的字符串名称.
+    regularization: float, default to 1.0
+        防止计算 woe 时分母为 0
 
     Examples
     --------
@@ -32,7 +35,8 @@ def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str):
 
     bin_df['woe'] = bin_df.apply(
         lambda row: np.log(
-            (row[bad_col] / bad_sum) / (row[good_col] / good_sum)),
+            ((row[bad_col] + regularization) / (bad_sum + 2 * regularization)) /
+            ((row[good_col] + regularization) / (good_sum + 2 * regularization))),
         axis=1)
     bin_df['iv'] = bin_df.apply(
         lambda row: (row[bad_col]/bad_sum - row[good_col]/good_sum) * row['woe'],
@@ -96,3 +100,9 @@ def if_monotonic(bad_rates, u: bool) -> bool:
             if left_down and right_up:
                 return True
     return False
+
+
+
+
+
+
