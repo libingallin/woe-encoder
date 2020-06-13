@@ -57,8 +57,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
     bin_woe_mapping_: dict
         bin 与 woe 值的对应关系
 
-    Examples
-    --------
+    Example
+    -------
     >>> from category_encoders import WOEEncoder
     >>> from sklearn.datasets import load_boston
     >>>
