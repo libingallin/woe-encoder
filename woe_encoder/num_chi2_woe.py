@@ -187,60 +187,6 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
         return chi2_list
 
     def _init_bins(self, df):
-        """初始化分箱操作, 并计算相邻 2 个 bin 的卡方值.
-
-        默认每个 unique value 当作一个 bin.
-
-        Parameters
-        ----------
-        df: pd.DataFrame
-            原始输入数据. 内含 col_name 和 target_col_name.
-
-        Returns
-        -------
-        np.ndarray. 分箱的结果 with 一些统计信息.
-            col_name  bad_num  good_num
-            ---------------------------
-            10        2        10
-            20        4        16
-        list. 相邻 2 个 bin 的卡方值组成的列表.
-        """
-        # TODO(libing@souche.com): 等频、等宽初始化分箱
-        # print("Initializing bins for numerical feature...")
-        # 统计每个 bin 包含的数据量
-        # default sort=True
-        grouped = df.groupby(self.col_name)[self.target_col_name]
-        bin_num = grouped.count()
-        # index: bin 值, col: 数量
-        bin_num = pd.DataFrame({'bin_num': bin_num})
-        # 统计每个 bin 的正样本数 (target_col_value == 1)
-        bad_num = grouped.sum()
-        # index: bin 值, col: 正样本数
-        bad_num = pd.DataFrame({'bad_num': bad_num})
-
-        count_df = bin_num.merge(bad_num, how='inner',
-                                 left_index=True, right_index=True)
-        # 每个 bin 的负样本数 (target_col_value == 0)
-        count_df['good_num'] = count_df['bin_num'] - count_df['bad_num']
-        del count_df['bin_num']
-        count_df.reset_index(inplace=True)
-        if not len(bin_num) == len(bad_num) == len(count_df):
-            raise ValueError("The length of data must be SAME.")
-
-        combined_arr = count_df.values  # For high speed
-
-        # 处理连续没有正/负样本的区间，则进行区间的向下合并 (防止计算 chi2 出错)
-        # print("Merging unreasonable bins...")
-        i = 0
-        while i <= (len(combined_arr) - 2):
-            # 第 i 和 i+1 个位置的 bad_num 连续为 0 或者 good_num 连续为 0
-            if (combined_arr[i:i + 2, 1] == 0).all() or (
-                    combined_arr[i: i + 2, 2] == 0).all():
-                combined_arr[i, 0] = combined_arr[i + 1, 0]
-                combined_arr[i, 1:] += combined_arr[i + 1, 1:]
-                combined_arr = np.delete(combined_arr, i + 1, axis=0)
-                i -= 1  # 需要继续从 i 位置开始
-            i += 1
 
         # 计算相邻 2 个 bin 的 chi2
         # print("Calculating chi2 value for every two sequent bins...")

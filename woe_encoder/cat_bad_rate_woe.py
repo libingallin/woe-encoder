@@ -8,7 +8,7 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from woe_encoder.utils import calculate_woe_iv
-from woe_encoder.cat_utils import initialize_bins, locate_index, update_bin_df
+from woe_encoder.utils_for_cat import initialize_bins, locate_index, update_bin_df
 
 
 class CatMaxBinBadRateDiffWOEEncoder(BaseEstimator, TransformerMixin):

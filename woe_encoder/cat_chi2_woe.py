@@ -9,7 +9,7 @@ from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from woe_encoder.utils import calculate_woe_iv, if_monotonic
-from woe_encoder.cat_utils import initialize_bins, locate_index, update_bin_df
+from woe_encoder.utils_for_cat import initialize_bins, locate_index, update_bin_df
 
 
 class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
