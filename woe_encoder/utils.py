@@ -7,6 +7,44 @@ import numpy as np
 import pandas as pd
 
 
+def gen_special_value_list(df: pd.DataFrame, col_name: str,
+                           imputation_value=None, special_value_list=None):
+    """将缺失值的填充值 imputation_value 与特殊值组成的列表组成一个新的列表。
+
+    缺失值（填充）也相当于特殊值，放到 special_value_list 里一起处理。
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+    col_name: str
+        特征名
+    imputation_value:
+        缺失值的填充值
+    special_value_list: list
+        需要特殊对待的值
+
+    Returns
+    -------
+    special_value_flag: bool or None (default)
+        表示有需要的特殊对待的值
+    special_value_list: list or None (default)
+        需要特殊对待值组成的列表
+    """
+    special_value_flag = False
+    if imputation_value is not None:
+        # Fill missing values with the specified value.
+        df[col_name] = df[col_name].fillna(imputation_value)
+        if special_value_list is not None:
+            special_value_list.append(imputation_value)
+        else:
+            special_value_list = [imputation_value]
+        special_value_flag = True
+    else:
+        if special_value_list is not None:
+            special_value_flag = True
+    return special_value_flag, special_value_list
+
+
 def calculate_woe_iv(bin_df: pd.DataFrame, bad_col: str, good_col: str,
                      regularization=1.):
     """计算 pd.DataFrame 的正则化 WOE 值和 IV 值.

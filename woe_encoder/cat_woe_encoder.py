@@ -13,7 +13,7 @@ from woe_encoder.utils_for_cat import (calculate_bad_rate_diff_for_bin_df,
                                        locate_index,
                                        process_special_values,
                                        update_bin_df)
-from woe_encoder.utils import if_monotonic, calculate_woe_iv
+from woe_encoder.utils import calculate_woe_iv, gen_special_value_list, if_monotonic
 
 
 class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
@@ -37,8 +37,8 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         卡方分箱停止的阈值
     special_value_list: list, default to None
         特征中需要特殊对待的值。like: [s_v_1, s_v_2]
-    missing_value:
-        fill 缺失值
+    imputation_value: default None
+        缺失值的填充值
     need_monotonic: boolean, default to False
         特征转换后是否需要满足单调性
     u: boolen, default to False
@@ -85,7 +85,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
                  woe_method='chi2',  # or "bad_rate"
                  confidence=3.841,
                  special_value_list=None,
-                 missing_value=None,
+                 imputation_value=None,
                  need_monotonic=None,
                  u=None,
                  value_order_dict=None,
@@ -97,7 +97,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         self.woe_method = woe_method
         self.confidence = confidence
         self.special_value_list = special_value_list
-        self.missing_value = missing_value
+        self.imputation_value = imputation_value
         self.need_monotonic = need_monotonic
         self.u = u
         self.value_order_dict = value_order_dict
@@ -141,18 +141,25 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
             calculator_between_bins = calculate_bad_rate_diff_for_bin_df
         values_calculated = calculator_between_bins(bin_df)
 
-        # condition 1 卡方分箱时，停止条件：大于阈值 & 小于最大箱数
+        # condition 1: 卡方分箱时，停止条件：大于阈值 & 小于最大箱数 （？？？）
         if self.woe_method == 'chi2':
-            while (len(df) > self.max_bins) and (min(values_calculated) < self.confidence):
+            while ((len(bin_df) > self.max_bins)
+                    and (min(values_calculated) < self.confidence)
+                    and (len(values_calculated) > 0)):
                 index = np.argmin(values_calculated)
                 bin_df = update_bin_df(bin_df, index)
                 values_calculated = calculator_between_bins(bin_df)
-        # condition 1 坏样本率差异最大化: bin 的个数不大于 max_bins
-        else:
+        else:  # condition 1: 坏样本率差异最大化时，停止条件：小于最大箱数
             while len(bin_df) > self.max_bins:
                 index = np.argmin(values_calculated)
                 bin_df = update_bin_df(bin_df, index)
                 values_calculated = calculator_between_bins(bin_df)
+
+        # # condition 1: 停止条件：小于最大箱数
+        # while len(bin_df) > self.max_bins:
+        #     index = np.argmin(values_calculated)
+        #     bin_df = update_bin_df(bin_df, index)
+        #     values_calculated = calculator_between_bins(bin_df)
 
         # condition 2: 每个 bin 的 bad_rate 不为 0 / 1
         i = 0
@@ -189,25 +196,13 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         raw_length = len(df)
         bin_num_threshold = raw_length * self.bin_pct_threshold
 
-        # missing_value 也相当于特殊值，放到 special_value_list 里一起处理
-        special_value_flag = False
-        if self.missing_value is not None:
-            # Fill missing values with the specified value.
-            df[self.col_name] = df[self.col_name].fillna(self.missing_value)
-            if self.special_value_list is not None:
-                self.special_value_list.append(self.missing_value)
-            else:
-                self.special_value_list = [self.missing_value]
-            special_value_flag = True
-        else:
-            if self.special_value_list is not None:
-                special_value_flag = True
-
+        # imputation_value 也相当于特殊值，放到 special_value_list 里一起处理
+        special_value_flag, special_values = gen_special_value_list(
+            df, self.col_name, self.imputation_value, self.special_value_list)
         if special_value_flag:  # 处理特殊值——每个特殊值（缺失值）单独作为一个 bin
             df, stats = process_special_values(
-                df, self.col_name, self.target_col_name,
-                self.special_value_list)
-            self.max_bins -= len(self.special_value_list)
+                df, self.col_name, self.target_col_name, special_values)
+            self.max_bins -= len(special_values)
 
         bin_df = self._train(df, bin_num_threshold)
         if special_value_flag:
@@ -232,9 +227,9 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
     def transform(self, x: pd.DataFrame):
         new_x = x.copy()
 
-        if self.missing_value is not None:
+        if self.imputation_value is not None:
             new_col = self.col_name + '_filled'
-            new_x[new_col] = new_x[self.col_name].fillna(self.missing_value)
+            new_x[new_col] = new_x[self.col_name].fillna(self.imputation_value)
         else:
             new_col = self.col_name + '_copied'
             new_x[new_col] = new_x[self.col_name].copy()
@@ -269,7 +264,7 @@ if __name__ == '__main__':
     # Test: 缺失值 & 特殊值
     # data[col] = data[col].where(data[col] != 1., np.nan)
     # my_encoder = CategoryWOEEncoder(col, 'y', special_value_list=[2., 3.],
-    #                                 missing_value=100.)
+    #                                 imputation_value=100.)
     # df_my = my_encoder.fit_transform(data)
     # print(df_my[[col+'_woe', col]])
     # print(my_encoder.bin_df_)

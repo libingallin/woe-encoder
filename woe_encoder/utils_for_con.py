@@ -5,6 +5,7 @@
 """
 import numpy as np
 import pandas as pd
+from scipy.stats import chi2_contingency
 
 
 def initialize_bins_for_con(df, col_name: str, target_col_name: str):
@@ -66,3 +67,24 @@ def process_special_values(df, col: str, target_col_name: str,
     del stats['bin_num']
 
     return df, stats
+
+
+def calculate_chi2_for_bin_arr(combined_arr: np.ndarray) -> list:
+    """计算数组相邻 2 行（bin）的卡方值."""
+    chi2_list = []
+    arr_len = len(combined_arr)
+    for i in range(arr_len - 1):
+        chi2_v = chi2_contingency(combined_arr[i:i + 2, 1:])[0]
+        chi2_list.append(chi2_v)
+    if len(chi2_list) != arr_len - 1:
+        raise ValueError("卡方值的数量应该等于数组长度减 1.")
+    return chi2_list
+
+
+def calculate_bad_rate_diff_for_bin_arr(bin_arr: np.ndarray) -> list:
+    """计算相邻 bin 的 bad_rate 之差."""
+    row_sum = bin_arr[:, 1:].sum(axis=1)
+    bad_rates = bin_arr[:, 1] / row_sum
+    # bad_rates = np.round(bin_arr[:, 1] / row_sum, decimals=4)
+    bad_rate_diff = [j - i for i, j in zip(bad_rates, bad_rates[1:])]
+    return bad_rate_diff

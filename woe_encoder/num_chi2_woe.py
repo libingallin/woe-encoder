@@ -132,67 +132,6 @@ class NumericalWOEEncoder(BaseEstimator, TransformerMixin):
                 "There are missing values in `{}`".format(
                     self.target_col_name))
 
-    @staticmethod
-    def calculate_bad_rate(np_arr: np.ndarray, only_bad_rate=True):
-        """"计算 NumPy 数组的 bad_rate.
-
-        Parameters
-        ----------
-        np_arr: np.ndarray
-        only_bad_rate: bool, default to True
-            是否只返回 bad_rate。默认只返回 bad_rate。如果为 False，
-            那么在 `np_arr` 末尾追加 bad_rate 列。
-
-        Returns
-        -------
-        arrray-like. 每个 bin 的 bad_rate.
-
-        Examples
-        --------
-        calculate_bad_rate(a) -> [0.333, 0.4]
-            bin   bad_count   good_count
-            ----------------------------
-            xx    10           20
-            xxx   20           30
-        calculate_bad_rate(a, False) ->
-            bin   bad_count   good_count  bad_rate
-            --------------------------------------
-            xx    10           20         0.3333
-            xxx   20           30         0.4
-        """
-        # 增加 bad_rate
-        row_sum = np_arr[:, 1:].sum(axis=1)
-        # np_arr = np.concatenate((np_arr, row_sum.reshape(-1, 1)), axis=1)
-        # 为每一个 bin 增加 bad_rate (==bad/(bad+good))
-        bad_rate = np.round(np_arr[:, 1] / row_sum, decimals=4)
-        # np_arr = np.concatenate((np_arr, bad_rate.reshape(-1, 1)), axis=1)
-        if only_bad_rate:
-            return bad_rate
-        else:
-            return np.concatenate((np_arr, bad_rate.reshape(-1, 1)), axis=1)
-
-    @staticmethod
-    def calculate_chi2_for_array(combined_arr: np.ndarray) -> list:
-        """从第一行开始, 计算相邻 2 行的卡方值.
-
-        每次重新计算很慢.
-        """
-        chi2_list = []
-        arr_len = len(combined_arr)
-        for i in range(arr_len - 1):
-            chi2_v = chi2_contingency(combined_arr[i:i + 2, 1:])[0]
-            chi2_list.append(chi2_v)
-        if len(chi2_list) != arr_len - 1:
-            raise ValueError("卡方值的数量应该等于数组长度减 1.")
-        return chi2_list
-
-    def _init_bins(self, df):
-
-        # 计算相邻 2 个 bin 的 chi2
-        # print("Calculating chi2 value for every two sequent bins...")
-        chi2_list = self.calculate_chi2_for_array(combined_arr)
-        return combined_arr, chi2_list
-
     def _merge_bins(self, np_arr: np.ndarray, chi2_list: list, index: int):
         """将 index 位置的 bin 与其下一个 bin 合并.
 

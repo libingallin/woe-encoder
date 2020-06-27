@@ -122,7 +122,7 @@ def update_bin_df(bin_df, index, value_order_dict=None):
 
 def process_special_values(df, col: str, target_col_name: str,
                            special_value_list: list):
-
+    """特殊值（含缺失值）不参与分箱，单独处理。"""
     df_len = len(df)
     df_special = df[df[col].isin(special_value_list)]
     # df = df[~df.isin(df_special)].dropna(how='all')
@@ -154,7 +154,8 @@ def calculate_chi2_for_bin_df(bin_df: pd.DataFrame) -> list:
     return chi2_list
 
 
-def calculate_bad_rate_diff_for_bin_df(bin_df):
+def calculate_bad_rate_diff_for_bin_df(bin_df: pd.DataFrame):
+    """计算相邻 bin 的 bad_rate 之差."""
     bad_rates = bin_df['bad_rate'].values
     bad_rate_diff = [j - i for i, j in zip(bad_rates, bad_rates[1:])]
     return bad_rate_diff
