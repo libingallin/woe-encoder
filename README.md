@@ -64,39 +64,19 @@
 
 为什么分箱要求是这样的顺序？
 
+TODO(libing)
 
 
-
-
-
-
-
-
-### 2.4 基于树的分箱
-
-TODO
-
-
-
-## 3. 食用方法
+## 3. Examples
 
 ```python
-from woe_encoder import CatMaxBinBadRateDiffWOEEncoder
 from woe_encoder import CategoryWOEEncoder
-from woe_encoder import NumericalWOEEncoder
+from woe_encoder import ContinuousWOEEncoder
 ```
 
+## 4. References
 
-
-## 4. 例子
-
-TODO
-
-
-
-## 5. 参考
-
-1. [xx](link)
-2. [yy](link)
+1. https://github.com/scikit-learn-contrib/category_encoders/blob/master/category_encoders/woe.py
+2. https://blog.csdn.net/qq_40913605/article/details/88133449
 
 
