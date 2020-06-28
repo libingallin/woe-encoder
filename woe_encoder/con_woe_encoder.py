@@ -113,20 +113,20 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         assert self.woe_method in ('chi2', 'bad_rate'), "'chi2' or 'bad_rate'."
 
         if self.woe_method == 'chi2':
-            assert isinstance(self.min_chi2_flag, bool), "True or False"
+            assert isinstance(self.min_chi2_flag, bool), "True or False."
         else:  # woe_method='bad_rate'
             self.min_chi2_flag = False
 
         if self.special_value_list is not None:
-            assert isinstance(self.special_value_list, list), "Need a list"
+            assert isinstance(self.special_value_list, list), "Need a list."
 
-        assert isinstance(self.need_monotonic, bool), "Need a boolean value"
+        assert isinstance(self.need_monotonic, bool), "Need a boolean value."
         assert isinstance(self.u, bool), "Need a boolean value"
 
         if self.value_order_dict is not None:
             assert isinstance(self.value_order_dict, dict), "Need a dict"
 
-        assert isinstance(self.regularization, (float, int)), "float or integer"
+        assert isinstance(self.regularization, (float, int)), "float or integer."
 
     def _train(self, df, bin_num_threshold):
         bin_arr = initialize_bins_for_con(

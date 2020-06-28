@@ -128,20 +128,20 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         assert self.woe_method in ('chi2', 'bad_rate'), "'chi2' or 'bad_rate'."
 
         if self.woe_method == 'chi2':
-            assert isinstance(self.min_chi2_flag, bool), "True or False"
+            assert isinstance(self.min_chi2_flag, bool), "True or False."
         else:  # woe_method='bad_rate'
             self.min_chi2_flag = False
 
         if self.special_value_list is not None:
-            assert isinstance(self.special_value_list, list), "Need a list"
+            assert isinstance(self.special_value_list, list), "Need a list."
 
-        assert isinstance(self.need_monotonic, bool), "Need a boolean value"
+        assert isinstance(self.need_monotonic, bool), "Need a boolean value."
         assert isinstance(self.u, bool), "Need a boolean value"
 
         if self.value_order_dict is not None:
-            assert isinstance(self.value_order_dict, dict), "Need a dict"
+            assert isinstance(self.value_order_dict, dict), "Need a dict."
 
-        assert isinstance(self.regularization, (float, int)), "float or integer"
+        assert isinstance(self.regularization, (float, int)), "float or integer."
 
     def _train(self, df, bin_num_threshold) -> pd.DataFrame:
         # 初始化分箱（不包含特殊值&缺失值）
@@ -263,15 +263,15 @@ if __name__ == '__main__':
     col = 'RAD'
 
     # Test: vs sklearn_contrib
-    my_encoder = CategoryWOEEncoder(col, 'y', max_bins=100,
-                                    bin_pct_threshold=0,
-                                    min_chi2_flag=False)
-    sklearn_encoder = WOEEncoder(cols=[col]).fit(data, y)
-    df_sklearn = sklearn_encoder.transform(data)
-    print(df_sklearn[col])
-    df_my = my_encoder.fit_transform(data)
-    print(df_my[[col + '_woe', col]])
-    print(my_encoder.bin_result_)
+    # my_encoder = CategoryWOEEncoder(col, 'y', max_bins=100,
+    #                                 bin_pct_threshold=0,
+    #                                 min_chi2_flag=False)
+    # sklearn_encoder = WOEEncoder(cols=[col]).fit(data, y)
+    # df_sklearn = sklearn_encoder.transform(data)
+    # print(df_sklearn[col])
+    # df_my = my_encoder.fit_transform(data)
+    # print(df_my[[col + '_woe', col]])
+    # print(my_encoder.bin_result_)
 
     # Test: 缺失值 & 特殊值
     # data[col] = data[col].where(data[col] != 1., np.nan)
@@ -312,3 +312,22 @@ if __name__ == '__main__':
     # df_my = my_encoder.fit_transform(data)
     # print(df_my[[col+'_woe', col]])
     # print(my_encoder.bin_result_)
+
+    # 特征的值是有序的，需要传入值与位置的映射
+    data[col] = data[col].where(data[col] != 5., np.nan)
+    encoder = CategoryWOEEncoder(
+        col_name=col,
+        target_col_name='y',
+        max_bins=10,             # default, 最大分箱数
+        bin_pct_threshold=0.05,  # default, 每个 bin 的最少样本
+        woe_method='chi2',
+        min_chi2_flag=False,
+        imputation_value=100.0,
+        # 值的顺序字典
+        value_order_dict={1.: 0, 2.0: 1, 3.0: 2, 4.0: 3, 5.0: 4, 6.0: 7,
+                          7.0: 8, 8.0: 9, 24.0: 10},
+        need_monotonic=True,
+    )
+    data_transformed = encoder.fit_transform(data)
+    data_transformed.head()
+    print(encoder.bin_result_)

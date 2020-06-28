@@ -42,18 +42,19 @@ def initialize_bins(df, col_name: str, target_col_name: str,
     bin_df = df.groupby(col_name)[target_col_name].agg(
         bin_num='count', bad_num='sum')
     bin_df.reset_index(inplace=True)
-    bin_df[col_name] = bin_df[col_name].map(lambda x: [x])
     bin_df['good_num'] = bin_df['bin_num'] - bin_df['bad_num']
     bin_df['bad_rate'] = bin_df['bad_num'] / bin_df['bin_num']
     bin_df['bin_pct'] = bin_df['bin_num'] / df_len
 
     # index 永远是从 0 开始
     if value_order_dict:
+        # value_order_dict = {[key]: v for key, v in value_order_dict.items()}
         bin_df['order'] = bin_df[col_name].map(value_order_dict)
         bin_df = bin_df.sort_values('order', ignore_index=True)
     else:
         bin_df = bin_df.sort_values('bad_rate', ignore_index=True)
 
+    bin_df[col_name] = bin_df[col_name].map(lambda x: [x])
     return bin_df
 
 
