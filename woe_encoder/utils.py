@@ -1,8 +1,9 @@
 # -*-encoding: utf-8 -*-
 """
 @time: 2020-05-26
-@author: libingallin@outlook.com
+@author: bingli
 """
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -140,7 +141,58 @@ def if_monotonic(bad_rates, u: bool) -> bool:
     return False
 
 
+def set_color_for_iv(ivs) -> (list, dict):
+    """Different color for different iv range.
+
+    用不同的颜色代表不同的 IV 值范围. 返回值中 legends 用来绘制 legend.
+    """
+    colors = []
+    for iv in ivs:
+        if iv < 0.02:
+            colors.append('gray')
+        elif iv < 0.1:
+            colors.append('lightgreen')
+        elif iv < 0.3:
+            colors.append('lightskyblue')
+        elif iv < 0.5:
+            colors.append('gold')
+        else:
+            colors.append('lightcoral')
+
+    legends = {
+        '[0.00, 0.02) Useless': 'gray',
+        '[0.02, 0.10) Weak': 'lightgreen',
+        '[0.10, 0.30) Medium': 'lightskyblue',
+        '[0.30, 0.50) Strong': 'gold',
+        '[0.50, +inf) Suspicious': 'lightcoral'}
+
+    return colors, legends
 
 
+def plot_ivs(col_iv_dict: dict, figsize=(15, 6)):
+    """绘制每个特征的 IV 值.
 
+    Parameters
+    ----------
+    col_iv_dict: dict
+        (column_name, iv_value)
+    figsize: tuple of float
+        图的尺寸
+    """
+    colors, legends = set_color_for_iv(col_iv_dict.values())
 
+    x = np.arange(len(col_iv_dict))
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.bar(x, col_iv_dict.values(), color=colors, edgecolor='k')
+    ax.set_xticks(x)
+    ax.set_xticklabels(col_iv_dict.keys(), rotation=90)
+    ax.tick_params(axis='both', which='major', labelsize=12, direction='in')
+    ax.set_ylabel('IV', fontsize=14)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+
+    legend_labels = list(legends.keys())
+    handles = [plt.Rectangle((0, 0), 1, 1, color=legends[label])
+               for label in legend_labels]
+    ax.legend(handles, legend_labels, shadow=True, fancybox=True, fontsize=14)
+    plt.show()

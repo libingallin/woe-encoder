@@ -157,5 +157,7 @@ def calculate_chi2_for_bin_df(bin_df: pd.DataFrame) -> list:
 def calculate_bad_rate_diff_for_bin_df(bin_df: pd.DataFrame):
     """计算相邻 bin 的 bad_rate 之差."""
     bad_rates = bin_df['bad_rate'].values
-    bad_rate_diff = [j - i for i, j in zip(bad_rates, bad_rates[1:])]
-    return bad_rate_diff
+    bad_rate_diffs = [j - i for i, j in zip(bad_rates, bad_rates[1:])]
+
+    assert len(bin_df) - 1 == len(bad_rate_diffs)
+    return bad_rate_diffs
