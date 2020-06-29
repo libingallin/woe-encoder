@@ -28,7 +28,7 @@
 
 <Br>
 
-直接看 [Examples](#two-examples) 吧.
+直接看 [Examples](#two-examples) 吧。
 
 <br>
 
