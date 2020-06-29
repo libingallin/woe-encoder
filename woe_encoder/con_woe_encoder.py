@@ -139,13 +139,14 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         # 如果基于卡方分箱，则可以是按照阈值合并（min_chi2_flag=True）也可以是按照最大箱数合并
         # 如果基于坏样本率差异极大化，只能是按照最大箱数合并
         if self.min_chi2_flag:   # 停止条件：最小卡方值大于阈值
-            while ((min(values_calculated) < self.confidence)
-                   and (len(bin_arr) > 1)):
+            while (len(values_calculated) > 0
+                   and min(values_calculated) < self.confidence
+                   and len(bin_arr) > 1):
                 index = np.argmin(values_calculated)
                 bin_arr, values_calculated = update_bin_arr(
                     bin_arr, values_calculated, index, self.woe_method)
         else:  # 停止条件：小于最大箱数
-            while (len(bin_arr) > self.max_bins) and (len(bin_arr) > 1):
+            while len(bin_arr) > self.max_bins and len(bin_arr) > 1:
                 index = np.argmin(values_calculated)
                 bin_arr, values_calculated = update_bin_arr(
                     bin_arr, values_calculated, index, self.woe_method)

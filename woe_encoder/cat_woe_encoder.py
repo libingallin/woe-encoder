@@ -160,13 +160,14 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         # 如果基于卡方分箱，则可以是按照阈值合并（min_chi2_flag=True）也可以是按照最大箱数合并
         # 如果基于坏样本率差异极大化，只能是按照最大箱数合并
         if self.min_chi2_flag:   # 停止条件：最小卡方值大于阈值
-            while ((min(values_calculated) < self.confidence)
-                    and (len(bin_df) > 1)):
+            while (len(values_calculated) > 0
+                   and min(values_calculated) < self.confidence
+                   and len(bin_df) > 1):
                 index = np.argmin(values_calculated)
                 bin_df = update_bin_df(bin_df, index)
                 values_calculated = calculator_between_bins(bin_df)
         else:  # 停止条件：小于最大箱数
-            while (len(bin_df) > self.max_bins) and (len(bin_df) > 1):
+            while len(bin_df) > self.max_bins and len(bin_df) > 1:
                 index = np.argmin(values_calculated)
                 bin_df = update_bin_df(bin_df, index)
                 values_calculated = calculator_between_bins(bin_df)
@@ -182,7 +183,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
             i += 1
 
         # condition 3: 每个 bin 中的样本数不能少于阈值
-        while (np.min(bin_df['bin_num']) < bin_num_threshold) and (len(bin_df) > 1):
+        while np.min(bin_df['bin_num']) < bin_num_threshold and len(bin_df) > 1:
             index = np.argmin(bin_df['bin_num'])
             index = locate_index(bin_df, values_calculated, index)
             bin_df = update_bin_df(bin_df, index)
@@ -253,3 +254,23 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         new_x[self.col_name+'_woe'] = new_x[new_col].map(self.bin_woe_mapping_)
 
         return new_x.drop(columns=new_col)
+
+
+if __name__ == '__main__':
+    from sklearn.datasets import load_boston
+
+    pd.set_option('max_columns', 20)
+
+    bunch = load_boston()
+    data = pd.DataFrame(bunch.data, columns=bunch.feature_names)
+    y = bunch.target > 22.5
+    data['y'] = y
+
+    col = 'CHAS'
+
+    encoder = CategoryWOEEncoder(
+        col_name=col, target_col_name='y',
+        bin_pct_threshold=0.05,
+        woe_method='chi2', min_chi2_flag=True)
+    encoder.fit(data)
+    print(encoder.bin_result_)
