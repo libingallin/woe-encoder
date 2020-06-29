@@ -57,12 +57,8 @@ def process_special_values(df, col: str, target_col_name: str,
     df_special = df[df[col].isin(special_value_list)]
     df = df[~df[col].isin(special_value_list)]
 
-    print(special_value_list)
-    print(df_special[df_special[col] == 14.3337])
-
     stats = df_special.groupby(col)[target_col_name].agg(
         bad_num='sum', bin_num='count')
-    print(stats)
     stats['left_exclusive'] = special_value_list
     stats['right_inclusive'] = special_value_list
     stats['good_num'] = stats['bin_num'] - stats['bad_num']

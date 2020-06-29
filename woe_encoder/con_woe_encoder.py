@@ -196,7 +196,6 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         special_value_flag, special_values = gen_special_value_list(
             df, self.col_name, self.imputation_value, self.special_value_list)
         if special_value_flag:  # 处理特殊值——每个特殊值（缺失值）单独作为一个 bin
-            print(special_values)
             df, stats = process_special_values(
                 df, self.col_name, self.target_col_name, special_values)
             self.max_bins -= len(special_values)
