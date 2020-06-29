@@ -7,7 +7,6 @@ import bisect
 
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2_contingency
 from sklearn.base import BaseEstimator, TransformerMixin
 
 from woe_encoder.utils import (calculate_woe_iv,
@@ -123,9 +122,6 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         assert isinstance(self.need_monotonic, bool), "Need a boolean value."
         assert isinstance(self.u, bool), "Need a boolean value"
 
-        if self.value_order_dict is not None:
-            assert isinstance(self.value_order_dict, dict), "Need a dict"
-
         assert isinstance(self.regularization, (float, int)), "float or integer."
 
     def _train(self, df, bin_num_threshold):
@@ -156,7 +152,7 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
 
         # condition 2: 每个 bin 中不会出现 bad_rate 为 0/1
         i = 0
-        while i < len(bin_arr):
+        while i < len(bin_arr) and len(bin_arr) > 1:
             if 0 in bin_arr[i, 1:]:
                 # 需要确定该 bin 是和上一个还是下一个 bin 合并
                 # 不管哪种，统一转换成合并掉下一个 bin
@@ -171,7 +167,6 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         while i < len(bin_arr) and len(bin_arr) > 1:
             bin_num = bin_arr[i, 1:].sum()
             if bin_num < bin_num_threshold:
-                print(index, len(bin_arr))
                 index = locate_index(bin_arr, values_calculated, i)
                 bin_arr, chi2_list = update_bin_arr(
                     bin_arr, values_calculated, index, self.woe_method)
@@ -179,7 +174,7 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             i += 1
 
         # condition 4: 满足单调性 (U 型)
-        if self.need_monotonic:
+        if self.need_monotonic and len(bin_arr) > 2:
             bad_rates = bin_arr[:, 1] / bin_arr[:, 1:].sum(axis=1)
             while not if_monotonic(bad_rates, self.u):
                 index = np.argmin(values_calculated)
@@ -205,18 +200,21 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             self.max_bins -= len(special_values)
 
         # 分箱
-        bin_arr = self._train(df, bin_num_threshold)
+        if len(df) == 0:
+            bin_df = pd.DataFrame()
+        else:
+            bin_arr = self._train(df, bin_num_threshold)
 
-        # 分箱结果
-        bin_df = pd.DataFrame(bin_arr[:, 1:], columns=['bad_num', 'good_num'])
-        bin_df['bad_rate'] = bin_arr[:, 1] / bin_arr[:, 1:].sum(axis=1)
-        cutoffs = bin_arr[:-1, 0].tolist()
-        left_values = cutoffs.copy()
-        left_values.insert(0, self.min_margin)
-        bin_df['left_exclusive'] = left_values
-        right_values = cutoffs.copy()
-        right_values.append(self.max_margin)
-        bin_df['right_inclusive'] = right_values
+            # 分箱结果
+            bin_df = pd.DataFrame(bin_arr[:, 1:], columns=['bad_num', 'good_num'])
+            bin_df['bad_rate'] = bin_arr[:, 1] / bin_arr[:, 1:].sum(axis=1)
+            cutoffs = bin_arr[:-1, 0].tolist()
+            left_values = cutoffs.copy()
+            left_values.insert(0, self.min_margin)
+            bin_df['left_exclusive'] = left_values
+            right_values = cutoffs.copy()
+            right_values.append(self.max_margin)
+            bin_df['right_inclusive'] = right_values
 
         if special_value_flag:
             bin_df = bin_df.append(stats, ignore_index=True)
@@ -225,6 +223,10 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         bin_df[['woe', 'iv']] = calculate_woe_iv(
             bin_df, bad_col='bad_num', good_col='good_num',
             regularization=self.regularization)
+
+        bin_df = bin_df.reindex(
+            columns=['left_exclusive', 'right_inclusive', 'good_num',
+                     'bad_num', 'bad_rate', 'woe', 'iv'])
 
         self.cutoffs_ = cutoffs
         self.bin_result_ = bin_df
@@ -267,31 +269,3 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             ].values[0]
         else:
             return woes[bisect.bisect_left(self.cutoffs_, x)]
-
-
-if __name__ == '__main__':
-    from sklearn.datasets import load_boston
-    pd.set_option('max_columns', 20)
-
-    bunch = load_boston()
-    data = pd.DataFrame(bunch.data, columns=bunch.feature_names)
-    y = bunch.target > 22.5
-    data['y'] = y
-    col = 'CRIM'
-
-    # Test: normal
-    # my_encoder = ContinuousWOEEncoder(col, target_col_name='y')
-    # df_my = my_encoder.fit_transform(data)
-    # print(my_encoder.bin_result_)
-    # print(my_encoder.iv_)
-    # print(df_my[[col + '_woe', col]])
-
-    # Test
-    # data[col] = data[col].where(data[col] >= 0.02, np.nan)
-    # print("There are {} missing values".format(sum(data[col].isnull())))
-    # my_encoder = ContinuousWOEEncoder(col_name=col, target_col_name='y',
-    #                                   imputation_value=1000.
-    #                                   )
-    # df_my = my_encoder.fit_transform(data)
-    # print(my_encoder.iv_)
-    # print(my_encoder.bin_result_)

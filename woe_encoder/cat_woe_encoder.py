@@ -182,7 +182,7 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
             i += 1
 
         # condition 3: 每个 bin 中的样本数不能少于阈值
-        while np.min(bin_df['bin_num']) < bin_num_threshold:
+        while (np.min(bin_df['bin_num']) < bin_num_threshold) and (len(bin_df) > 1):
             index = np.argmin(bin_df['bin_num'])
             index = locate_index(bin_df, values_calculated, index)
             bin_df = update_bin_df(bin_df, index)
@@ -191,11 +191,12 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         # condition 4: (离散有序型特征) bin 是否满足单调性
         if self.value_order_dict:
             if self.need_monotonic:
-                bad_rates = bin_df.iloc[:, 4]
+                bad_rates = bin_df.loc[:, 'bad_rate'].values
                 while not if_monotonic(bad_rates, u=self.u):
                     index = np.argmin(values_calculated)
                     bin_df = update_bin_df(bin_df, index)
                     values_calculated = calculator_between_bins(bin_df)
+                    bad_rates = bin_df.loc[:, 'bad_rate'].values
 
         return bin_df
 
@@ -215,7 +216,10 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
             self.max_bins -= len(special_values)
 
         # 分箱处理
-        bin_df = self._train(df, bin_num_threshold)
+        if len(df) == 0:   # 以防所有值当作特殊值
+            bin_df = pd.DataFrame()
+        else:
+            bin_df = self._train(df, bin_num_threshold)
         if special_value_flag:
             bin_df = bin_df.append(stats, ignore_index=True)
 
@@ -249,85 +253,3 @@ class CategoryWOEEncoder(BaseEstimator, TransformerMixin):
         new_x[self.col_name+'_woe'] = new_x[new_col].map(self.bin_woe_mapping_)
 
         return new_x.drop(columns=new_col)
-
-
-if __name__ == '__main__':
-    from category_encoders import WOEEncoder
-    from sklearn.datasets import load_boston
-
-    bunch = load_boston()
-    data = pd.DataFrame(bunch.data, columns=bunch.feature_names)
-    y = bunch.target > 22.5
-    data['y'] = y
-
-    col = 'RAD'
-
-    # Test: vs sklearn_contrib
-    # my_encoder = CategoryWOEEncoder(col, 'y', max_bins=100,
-    #                                 bin_pct_threshold=0,
-    #                                 min_chi2_flag=False)
-    # sklearn_encoder = WOEEncoder(cols=[col]).fit(data, y)
-    # df_sklearn = sklearn_encoder.transform(data)
-    # print(df_sklearn[col])
-    # df_my = my_encoder.fit_transform(data)
-    # print(df_my[[col + '_woe', col]])
-    # print(my_encoder.bin_result_)
-
-    # Test: 缺失值 & 特殊值
-    # data[col] = data[col].where(data[col] != 1., np.nan)
-    # my_encoder = CategoryWOEEncoder(col, 'y', special_value_list=[2., 3.],
-    #                                 imputation_value=100.)
-    # df_my = my_encoder.fit_transform(data)
-    # print(df_my[[col+'_woe', col]])
-    # print(my_encoder.bin_result_)
-
-    # Test: woe_method='bad_rate'
-    # my_encoder = CategoryWOEEncoder(col, 'y',
-    #                                 max_bins=100, bin_pct_threshold=0,
-    #                                 woe_method='chi2')
-    # df_my = my_encoder.fit_transform(data)
-    # print(df_my[[col + '_woe', col]])
-    # print(my_encoder.bin_result_)
-    # print(my_encoder.iv_)
-    #
-    # my_encoder = CategoryWOEEncoder(col, 'y',
-    #                                 max_bins=100, bin_pct_threshold=0,
-    #                                 woe_method='bad_rate')
-    # df_my = my_encoder.fit_transform(data)
-    # print(df_my[[col + '_woe', col]])
-    # print(my_encoder.bin_result_)
-    # print(my_encoder.iv_)
-
-    # Test: woe_method='bad_rate'
-    # data = pd.read_excel(
-    #     '/Users/libing/Downloads/64353 智能风控_源码及数据_0303/智能风控（数据集）/data_for_tree.xlsx')
-    # col = 'class_new'
-    # target_col = 'bad_ind'
-    # my_encoder = CategoryWOEEncoder(col, target_col, max_bins=10,
-    #                                 bin_pct_threshold=0.05,
-    #                                 # special_value_list=['A'],
-    #                                 woe_method='bad_rate',
-    #                                 regularization=0,
-    #                                 )
-    # df_my = my_encoder.fit_transform(data)
-    # print(df_my[[col+'_woe', col]])
-    # print(my_encoder.bin_result_)
-
-    # 特征的值是有序的，需要传入值与位置的映射
-    data[col] = data[col].where(data[col] != 5., np.nan)
-    encoder = CategoryWOEEncoder(
-        col_name=col,
-        target_col_name='y',
-        max_bins=10,             # default, 最大分箱数
-        bin_pct_threshold=0.05,  # default, 每个 bin 的最少样本
-        woe_method='chi2',
-        min_chi2_flag=False,
-        imputation_value=100.0,
-        # 值的顺序字典
-        value_order_dict={1.: 0, 2.0: 1, 3.0: 2, 4.0: 3, 5.0: 4, 6.0: 7,
-                          7.0: 8, 8.0: 9, 24.0: 10},
-        need_monotonic=True,
-    )
-    data_transformed = encoder.fit_transform(data)
-    data_transformed.head()
-    print(encoder.bin_result_)

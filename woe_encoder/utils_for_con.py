@@ -156,7 +156,11 @@ def update_bin_arr(bin_arr: np.ndarray, metric_between_bin: list, index: int,
             "RAW `metric_between_bin` by 1.\n Please check the inputs.")
 
     assert woe_method in ('chi2', 'bad_rate')
-    metric = chi2_contingency if woe_method == 'chi2' else bad_rate_diff
+    if woe_method == 'chi2':
+        metric = lambda arr: chi2_contingency(arr)[0]
+    else:
+        metric = bad_rate_diff
+    # metric = g if woe_method == 'chi2' else bad_rate_diff
 
     # 向下合并时 (index == index+1)
     bin_arr[index, 0] = bin_arr[index + 1, 0]
@@ -168,14 +172,14 @@ def update_bin_arr(bin_arr: np.ndarray, metric_between_bin: list, index: int,
     if index == raw_arr_len - 1:  # 最后 1 个 bin 没法向下合并
         raise ValueError("The last bin must be merged with the above.")
     elif index == raw_arr_len - 2:  # 倒数第 2 个 bin，则合并最后 2 个 bin
-        metric_between_bin[index - 1] = metric(np_arr[index-1:index+1, 1:])[0]
+        metric_between_bin[index - 1] = metric(np_arr[index-1:index+1, 1:])
         _ = metric_between_bin.pop(index)
     else:
         # 如果是第 1 个 bin，只更新第 1 个 metric，然后删除第 2 个 metric
         # 否则，需要更新第 index-1 个 metric 和第 index 个 metric
         if index != 0:
-            metric_between_bin[index - 1] = metric(np_arr[index-1:index+1, 1:])[0]
-        metric_between_bin[index] = metric(np_arr[index:index + 2, 1:])[0]
+            metric_between_bin[index - 1] = metric(np_arr[index-1:index+1, 1:])
+        metric_between_bin[index] = metric(np_arr[index:index + 2, 1:])
         metric_between_bin.pop(index + 1)
 
     # 更新完成后再次验证长度关系
