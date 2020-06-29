@@ -168,7 +168,7 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             bin_num = bin_arr[i, 1:].sum()
             if bin_num < bin_num_threshold:
                 index = locate_index(bin_arr, values_calculated, i)
-                bin_arr, chi2_list = update_bin_arr(
+                bin_arr, values_calculated = update_bin_arr(
                     bin_arr, values_calculated, index, self.woe_method)
                 i -= 1
             i += 1
@@ -195,6 +195,7 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
         special_value_flag, special_values = gen_special_value_list(
             df, self.col_name, self.imputation_value, self.special_value_list)
         if special_value_flag:  # 处理特殊值——每个特殊值（缺失值）单独作为一个 bin
+            print(special_values)
             df, stats = process_special_values(
                 df, self.col_name, self.target_col_name, special_values)
             self.max_bins -= len(special_values)
@@ -244,12 +245,12 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             new_x[new_col] = new_x[self.col_name].copy()
 
         # 特殊值和缺失的填充值一起处理
-        if None not in (self.special_value_list, self.imputation_value):
-            new_x[self.col_name + '_woe'] = new_x[self.col_name].apply(
+        if self.special_value_list is not None or self.imputation_value is not None:
+            new_x[self.col_name + '_woe'] = new_x[new_col].apply(
                 self._woe_replace_with_special_value)
         else:
             woes = self.bin_result_['woe'].tolist()
-            new_x[self.col_name + '_woe'] = new_x[self.col_name].apply(
+            new_x[self.col_name + '_woe'] = new_x[new_col].apply(
                 lambda x: woes[bisect.bisect_left(self.cutoffs_, x)])
         return new_x.drop(columns=new_col)
 
@@ -265,7 +266,37 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
 
         if x in special_values:
             return self.bin_result_.loc[
-                self.bin_result_.loc['left_exclusive'] == x, 'woe'
+                self.bin_result_['left_exclusive'] == x, 'woe'
             ].values[0]
         else:
             return woes[bisect.bisect_left(self.cutoffs_, x)]
+
+
+if __name__ == '__main__':
+    from sklearn.datasets import load_boston
+
+    pd.set_option('max_columns', 20)
+
+    bunch = load_boston()
+    data = pd.DataFrame(bunch.data, columns=bunch.feature_names)
+    y = bunch.target > 22.5
+    data['y'] = y
+
+    continous_feature = 'CRIM'
+
+    # 生成缺失值
+    data[continous_feature] = data[continous_feature].where(
+        data[continous_feature] < 5.8, np.nan)
+
+    # 缺失值 + 特殊值
+    encoder = ContinuousWOEEncoder(
+        col_name=continous_feature,
+        target_col_name='y',
+        max_bins=6,  # for illustration
+        bin_pct_threshold=0.05,  # default
+        woe_method='chi2',
+        min_chi2_flag=False,
+        imputation_value=10000.,
+        special_value_list=[0.01501, 14.33370]
+    )
+    data_transformed = encoder.fit_transform(data)

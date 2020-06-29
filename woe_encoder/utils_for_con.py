@@ -57,8 +57,12 @@ def process_special_values(df, col: str, target_col_name: str,
     df_special = df[df[col].isin(special_value_list)]
     df = df[~df[col].isin(special_value_list)]
 
+    print(special_value_list)
+    print(df_special[df_special[col] == 14.3337])
+
     stats = df_special.groupby(col)[target_col_name].agg(
         bad_num='sum', bin_num='count')
+    print(stats)
     stats['left_exclusive'] = special_value_list
     stats['right_inclusive'] = special_value_list
     stats['good_num'] = stats['bin_num'] - stats['bad_num']
@@ -150,28 +154,31 @@ def update_bin_arr(bin_arr: np.ndarray, metric_between_bin: list, index: int,
         70        45       90
     """
     raw_arr_len = len(bin_arr)
-    if raw_arr_len != len(metric_between_bin) + 1:
-        raise ValueError(
-            "The length of RAW `bin_arr` is greater than the length of "
-            "RAW `metric_between_bin` by 1.\n Please check the inputs.")
-
+    assert raw_arr_len == len(metric_between_bin) + 1
     assert woe_method in ('chi2', 'bad_rate')
+
     if woe_method == 'chi2':
         metric = lambda arr: chi2_contingency(arr)[0]
     else:
         metric = bad_rate_diff
     # metric = g if woe_method == 'chi2' else bad_rate_diff
 
+    if index == raw_arr_len - 1:  # 最后 1 个 bin 没法向下合并
+        raise ValueError("The last bin must be merged with the above.")
+
     # 向下合并时 (index == index+1)
     bin_arr[index, 0] = bin_arr[index + 1, 0]
     bin_arr[index, 1:] += bin_arr[index + 1, 1:]
     np_arr = np.delete(bin_arr, index + 1, axis=0)
 
+    if len(np_arr) == 1:  # 如果和完只有一个 bin 了
+        return np_arr, None
+
     # 可以每次重新从头计算 metric_between_bin 来避免这种烧脑地手动更新 metric_between_bin.
     # 但是这种方法很慢, 而且手动更新有助于理解全过程.
-    if index == raw_arr_len - 1:  # 最后 1 个 bin 没法向下合并
-        raise ValueError("The last bin must be merged with the above.")
-    elif index == raw_arr_len - 2:  # 倒数第 2 个 bin，则合并最后 2 个 bin
+
+    # 倒数第 2 个 bin，则合并最后 2 个 bin
+    if index == raw_arr_len - 2:
         metric_between_bin[index - 1] = metric(np_arr[index-1:index+1, 1:])
         _ = metric_between_bin.pop(index)
     else:
