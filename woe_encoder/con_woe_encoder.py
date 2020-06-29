@@ -270,33 +270,3 @@ class ContinuousWOEEncoder(BaseEstimator, TransformerMixin):
             ].values[0]
         else:
             return woes[bisect.bisect_left(self.cutoffs_, x)]
-
-
-if __name__ == '__main__':
-    from sklearn.datasets import load_boston
-
-    pd.set_option('max_columns', 20)
-
-    bunch = load_boston()
-    data = pd.DataFrame(bunch.data, columns=bunch.feature_names)
-    y = bunch.target > 22.5
-    data['y'] = y
-
-    continous_feature = 'CRIM'
-
-    # 生成缺失值
-    data[continous_feature] = data[continous_feature].where(
-        data[continous_feature] < 5.8, np.nan)
-
-    # 缺失值 + 特殊值
-    encoder = ContinuousWOEEncoder(
-        col_name=continous_feature,
-        target_col_name='y',
-        max_bins=6,  # for illustration
-        bin_pct_threshold=0.05,  # default
-        woe_method='chi2',
-        min_chi2_flag=False,
-        imputation_value=10000.,
-        special_value_list=[0.01501, 14.33370]
-    )
-    data_transformed = encoder.fit_transform(data)
